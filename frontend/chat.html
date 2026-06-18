@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 对话演示</title>
+  <link rel="stylesheet" href="/static/chat.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h1>AI 对话演示</h1>
+      <p class="sidebar-desc">调用 <code>/api/v1/conversation</code>，支持多轮上下文和打印机效果。</p>
+
+      <label class="field-label" for="systemPrompt">系统提示词</label>
+      <textarea id="systemPrompt" class="prompt-input" rows="6" placeholder="例如：你是电商智能客服，请简洁、专业、友好地回答用户问题。"></textarea>
+
+      <div class="session-box">
+        <span class="label">会话 ID</span>
+        <span id="sessionId" class="session-id"></span>
+      </div>
+
+      <button id="clearBtn" class="secondary-btn" type="button">清空会话</button>
+    </aside>
+
+    <main class="chat-panel">
+      <header class="chat-header">
+        <div>
+          <h2>智能客服</h2>
+          <p>输入问题后即可和 AI 连续对话</p>
+        </div>
+        <span id="statusText" class="status idle">空闲</span>
+      </header>
+
+      <section id="messageList" class="message-list"></section>
+
+      <form id="chatForm" class="composer">
+        <textarea
+          id="messageInput"
+          class="composer-input"
+          rows="3"
+          placeholder="请输入内容，按 Enter 发送，Shift + Enter 换行"
+          required
+        ></textarea>
+        <button id="sendBtn" class="primary-btn" type="submit">发送</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/chat.js"></script>
+</body>
+</html>
