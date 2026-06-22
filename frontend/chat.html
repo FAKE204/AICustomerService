@@ -35,14 +35,18 @@
       <section id="messageList" class="message-list"></section>
 
       <form id="chatForm" class="composer">
-        <textarea
-          id="messageInput"
-          class="composer-input"
-          rows="3"
-          placeholder="请输入内容，按 Enter 发送，Shift + Enter 换行"
-          required
-        ></textarea>
-        <button id="sendBtn" class="primary-btn" type="submit">发送</button>
+        <div class="composer-inner">
+          <textarea
+            id="messageInput"
+            class="composer-input"
+            rows="1"
+            placeholder="请输入内容，按 Enter 发送，Shift + Enter 换行"
+            required
+          ></textarea>
+          <button id="sendBtn" class="primary-btn icon-btn" type="submit" title="发送">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </div>
       </form>
     </main>
   </div>
