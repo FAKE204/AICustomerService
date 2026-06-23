@@ -109,7 +109,13 @@ function appendMessage(role, content, typing = false) {
 
   const contentText = document.createElement("div");
   contentText.className = "message-content";
-  contentText.textContent = content;
+  // 用户输入按纯文本展示（避免 XSS）；AI 回复支持 Markdown 渲染
+  if (role === "assistant") {
+    contentText.classList.add("markdown");
+    contentText.innerHTML = renderMarkdown(content);
+  } else {
+    contentText.textContent = content;
+  }
 
   wrapper.appendChild(roleText);
   wrapper.appendChild(contentText);
@@ -122,13 +128,28 @@ async function typewriter(element, text) {
   const contentNode = element.querySelector(".message-content");
   contentNode.textContent = "";
 
+  // 打字机过程逐字显示纯文本，结束后再统一渲染为 Markdown，避免半截代码块闪烁
   for (const char of text) {
     contentNode.textContent += char;
     scrollToBottom();
     await sleep(char === "\n" ? 10 : 22);
   }
 
+  contentNode.classList.add("markdown");
+  contentNode.innerHTML = renderMarkdown(text);
   element.classList.remove("typing");
+}
+
+function renderMarkdown(text) {
+  if (typeof marked === "undefined") {
+    // 库未加载时退化为纯文本，保证可用
+    const node = document.createElement("div");
+    node.textContent = text;
+    return node.innerHTML;
+  }
+  marked.setOptions({ gfm: true, breaks: true });
+  const raw = marked.parse(text || "");
+  return typeof DOMPurify === "undefined" ? raw : DOMPurify.sanitize(raw);
 }
 
 function setStatus(text, type) {
