@@ -13,6 +13,7 @@ class ConversationRequest(BaseModel):
     message: str = Field(min_length=1)
     history: List[ConversationMessage] = Field(default_factory=list)
     system_prompt: Optional[str] = None
+    stream: bool = False
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
 

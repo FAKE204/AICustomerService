@@ -57,35 +57,74 @@ async function sendMessage(text) {
   setStatus("AI 回复中...", "loading");
 
   const typingElement = appendMessage("assistant", "", true);
+  const contentNode = typingElement.querySelector(".message-content");
+  const streamRenderer = createMarkdownStreamRenderer(contentNode);
+  let answer = "";
+  let finalPayload = null;
+  let streamError = null;
 
   try {
     const response = await fetch("/api/v1/conversation", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "text/event-stream",
       },
       body: JSON.stringify({
         session_id: sessionId,
         message: text,
         history,
+        stream: true,
         system_prompt: systemPromptInput.value.trim() || null,
       }),
     });
 
-    const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.detail || "接口调用失败");
+      throw new Error(await readErrorMessage(response));
     }
 
-    await typewriter(typingElement, data.answer || "");
-    history = Array.isArray(data.messages)
-      ? data.messages.filter((message) => message.role !== "system")
-      : history;
-    setStatus("空闲", "idle");
+    await consumeEventStream(response, ({ event, data }) => {
+      if (!data) {
+        return;
+      }
+
+      const payload = JSON.parse(data);
+      if (event === "delta") {
+        answer += payload.content || "";
+        streamRenderer.update(answer);
+        return;
+      }
+
+      if (event === "done") {
+        finalPayload = payload;
+        answer = payload.answer || answer;
+        streamRenderer.finish(answer);
+        typingElement.classList.remove("typing");
+        history = Array.isArray(payload.messages)
+          ? payload.messages.filter((message) => message.role !== "system")
+          : history;
+        setStatus("空闲", "idle");
+        return;
+      }
+
+      if (event === "error") {
+        streamError = new Error(payload.message || "流式输出失败");
+      }
+    });
+
+    if (streamError) {
+      throw streamError;
+    }
+
+    if (!finalPayload) {
+      streamRenderer.finish(answer);
+      typingElement.classList.remove("typing");
+      setStatus("空闲", "idle");
+    }
   } catch (error) {
     typingElement.classList.remove("typing");
-    typingElement.querySelector(".message-content").textContent =
-      `请求失败：${error.message}`;
+    contentNode.classList.remove("markdown");
+    contentNode.textContent = `请求失败：${error.message}`;
     setStatus("请求失败", "error");
   } finally {
     isSending = false;
@@ -124,22 +163,6 @@ function appendMessage(role, content, typing = false) {
   return wrapper;
 }
 
-async function typewriter(element, text) {
-  const contentNode = element.querySelector(".message-content");
-  contentNode.textContent = "";
-
-  // 打字机过程逐字显示纯文本，结束后再统一渲染为 Markdown，避免半截代码块闪烁
-  for (const char of text) {
-    contentNode.textContent += char;
-    scrollToBottom();
-    await sleep(char === "\n" ? 10 : 22);
-  }
-
-  contentNode.classList.add("markdown");
-  contentNode.innerHTML = renderMarkdown(text);
-  element.classList.remove("typing");
-}
-
 function renderMarkdown(text) {
   if (typeof marked === "undefined") {
     // 库未加载时退化为纯文本，保证可用
@@ -170,6 +193,107 @@ function autoResize(textarea) {
   textarea.style.height = `${textarea.scrollHeight}px`;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+function createMarkdownStreamRenderer(node) {
+  let latestText = "";
+  let frameId = null;
+
+  const flush = () => {
+    frameId = null;
+    node.classList.add("markdown");
+    node.innerHTML = renderMarkdown(latestText);
+    scrollToBottom();
+  };
+
+  return {
+    update(text) {
+      latestText = text;
+      if (frameId !== null) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(flush);
+    },
+    finish(text) {
+      latestText = text;
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+      flush();
+    },
+  };
+}
+
+async function consumeEventStream(response, onEvent) {
+  if (!response.body) {
+    throw new Error("当前浏览器不支持流式响应");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    buffer = buffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+    let boundaryIndex = buffer.indexOf("\n\n");
+    while (boundaryIndex !== -1) {
+      const rawEvent = buffer.slice(0, boundaryIndex);
+      buffer = buffer.slice(boundaryIndex + 2);
+
+      const parsedEvent = parseSseEvent(rawEvent);
+      if (parsedEvent) {
+        onEvent(parsedEvent);
+      }
+
+      boundaryIndex = buffer.indexOf("\n\n");
+    }
+  }
+
+  buffer += decoder.decode();
+  const tailEvent = parseSseEvent(buffer);
+  if (tailEvent) {
+    onEvent(tailEvent);
+  }
+}
+
+function parseSseEvent(rawEvent) {
+  if (!rawEvent.trim()) {
+    return null;
+  }
+
+  let event = "message";
+  const dataLines = [];
+
+  for (const line of rawEvent.split("\n")) {
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trim();
+      continue;
+    }
+
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+
+  return {
+    event,
+    data: dataLines.join("\n"),
+  };
+}
+
+async function readErrorMessage(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await response.json();
+    return data.detail || data.message || "接口调用失败";
+  }
+
+  const text = await response.text();
+  return text || "接口调用失败";
 }
