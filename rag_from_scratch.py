@@ -97,7 +97,8 @@ def chunk_by_paragraph(text: str, max_chars: int = 300) -> List[str]:
 # ============================================================
 # 向量化后端：默认本地兜底，开箱即跑；如需真实语义向量可切换为
 # "openai" 或 "sentence-transformers"（见 embed() 实现）。
-EMBED_BACKEND = os.getenv("RAG_EMBED_BACKEND", "hashing")
+EMBED_BACKEND = os.getenv("RAG_EMBED_BACKEND", "openai")
+# EMBED_BACKEND = os.getenv("RAG_EMBED_BACKEND", "hashing")
 EMBED_DIM = 256  # 本地兜底向量的维度
 
 
@@ -106,11 +107,12 @@ def _embed_openai(texts: Sequence[str]) -> List[List[float]]:
     from openai import OpenAI
 
     client = OpenAI(
-        api_key=os.getenv("EMBED_API_KEY", settings.LLM_API_KEY),
-        base_url=os.getenv("EMBED_API_BASE", settings.LLM_API_BASE),
+        api_key=os.getenv("EMBED_API_KEY", settings.TXT_EMBEDDINGS_API_KEY),
+        base_url=os.getenv("EMBED_API_BASE", settings.TXT_EMBEDDINGS_API_BASE),
     )
-    model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+    model = os.getenv("EMBED_MODEL", "text-embedding-v4")
     resp = client.embeddings.create(model=model, input=list(texts))
+
     return [d.embedding for d in resp.data]
 
 
@@ -294,8 +296,8 @@ def run_demo() -> None:
     print(f"    索引矩阵形状: {store.matrix.shape}")
 
     # 5. 检索
-    # question = "退款多久能到账？"
-    question = "物流配送时间为4小时内，对吗"
+    question = "多长时间退钱？"
+    # question = "物流配送时间为24小时内，对吗"
     print(f"\n[4] 检索 Top-3（问题: {question}）")
     retrieved = store.retrieve(question, top_k=3)
     for chunk, score in retrieved:

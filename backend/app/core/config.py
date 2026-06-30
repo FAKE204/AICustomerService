@@ -21,10 +21,17 @@ class Settings:
         "DATABASE_URL", "sqlite+aiosqlite:///./aicustomer.db"
     )
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "deepseek-v4-flash")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "deepseek-v4-pro")
     LLM_API_BASE: str = os.getenv("LLM_API_BASE", "https://api.deepseek.com")
-    LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "512"))
+    LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "2048"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+    TXT_EMBEDDINGS_API_KEY: str = os.getenv(
+        "TXT_EMBEDDINGS_API_KEY", ""
+    )
+    TXT_EMBEDDINGS_API_BASE: str = os.getenv(
+        "TXT_EMBEDDINGS_API_BASE",
+        "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    )
 
 
 settings = Settings()
